@@ -16,6 +16,9 @@
  */
 package org.apache.camel.support.builder;
 
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -26,6 +29,17 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+
+import org.xml.sax.InputSource;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExecutionException;
@@ -54,6 +68,7 @@ import org.apache.camel.support.LanguageSupport;
 import org.apache.camel.util.InetAddressUtil;
 import org.apache.camel.util.ObjectHelper;
 import org.apache.camel.util.StringHelper;
+import org.apache.camel.util.json.Jsoner;
 
 /**
  * A helper class for working with <a href="http://camel.apache.org/expression.html">expressions</a>.
@@ -2034,6 +2049,54 @@ public class ExpressionBuilder {
                 return "bodyOneLine()";
             }
         };
+    }
+
+    /**
+     * Returns the expression for the message body as pretty formatted string
+     */
+    public static Expression prettyBodyExpression() {
+        return new ExpressionAdapter() {
+            @Override
+            public Object evaluate(Exchange exchange) {
+                String body = exchange.getIn().getBody(String.class);
+
+                if (body == null) {
+                    return null;
+                } else if (body.startsWith("{") && body.endsWith("}") || body.startsWith("[") && body.endsWith("]")) {
+                    return Jsoner.prettyPrint(body); //json
+                } else if(body.startsWith("<") && body.endsWith(">")) {
+                    return ExpressionBuilder.prettyXml(body); //xml
+
+                }
+
+                return body;
+            }
+
+            @Override
+            public String toString() {
+                return "prettyBody()";
+            }
+        };
+    }
+
+    private static String prettyXml(String rawXml) {
+        try {
+            InputSource src = new InputSource(new StringReader(rawXml));
+            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(src);
+
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            transformerFactory.setAttribute("indent-number", 2);
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+
+            Writer out = new StringWriter();
+            transformer.transform(new DOMSource(document), new StreamResult(out));
+            return out.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Error occurs when pretty-printing xml:\n" + rawXml, e);
+        }
     }
 
 }

@@ -96,6 +96,8 @@ converted body can be null.
 
 |bodyOneLine | String | Converts the body to a String and removes all line-breaks so the string is in one line.
 
+|prettyBody | String | Converts the body to a String and pretty print if JSON or XML.
+
 |originalBody | Object | The original incoming body (only available if allowUseOriginalMessage=true).
 
 |mandatoryBodyAs(_type_) |Type |Converts the body to the given type determined by its
