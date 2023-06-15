@@ -16,9 +16,6 @@
  */
 package org.apache.camel.language.csimple;
 
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Date;
@@ -28,17 +25,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-
-import org.w3c.dom.Document;
-
-import org.xml.sax.InputSource;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExchangeException;
@@ -63,6 +49,7 @@ import org.apache.camel.util.OgnlHelper;
 import org.apache.camel.util.SkipIterator;
 import org.apache.camel.util.StringHelper;
 import org.apache.camel.util.json.Jsoner;
+import org.apache.camel.util.xml.XmlPrettyPrinter;
 
 /**
  * A set of helper as static imports for the Camel compiled simple language.
@@ -184,9 +171,9 @@ public final class CSimpleHelper {
         if (body == null) {
             return null;
         } else if (body.startsWith("{") && body.endsWith("}") || body.startsWith("[") && body.endsWith("]")) {
-            body = Jsoner.prettyPrint(body); //json
+            body = Jsoner.prettyPrint(body.trim()); //json
         } else if (body.startsWith("<") && body.endsWith(">")) {
-            return CSimpleHelper.prettyXml(body); //xml
+            return CSimpleHelper.prettyXml(body.trim()); //xml
         }
 
         return body;
@@ -194,21 +181,11 @@ public final class CSimpleHelper {
 
     private static String prettyXml(String rawXml) {
         try {
-            InputSource src = new InputSource(new StringReader(rawXml));
-            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(src);
-
-            TransformerFactory transformerFactory = TransformerFactory.newInstance();
-            transformerFactory.setAttribute("indent-number", 2);
-            Transformer transformer = transformerFactory.newTransformer();
-            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
-            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-
-            Writer out = new StringWriter();
-            transformer.transform(new DOMSource(document), new StreamResult(out));
-            return out.toString();
+            boolean includeDeclaration = rawXml.startsWith("<?xml");
+            return XmlPrettyPrinter.pettyPrint(rawXml, 2, includeDeclaration);
         } catch (Exception e) {
-            throw new RuntimeException("Error occurs when pretty-printing xml:\n" + rawXml, e);
+            e.printStackTrace();
+            return rawXml;
         }
     }
 
